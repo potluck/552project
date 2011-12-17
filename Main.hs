@@ -51,7 +51,7 @@ evalE (Op bop e1 e2) = do
     _ -> throwError (IntVal 2)
 
 
-
+-- evalS :: Statement -> m Expression
 evalS :: (MonadState Store m, MonadError Value m, MonadWriter String m) => Statement -> m ()
 evalS = undefined
 {-

@@ -26,6 +26,7 @@ Lists
 >   | DoubleVal Double
 >   | CharVal Char
 >   --| List [Value]
+>   --| Var Variable??
 >   deriving (Show, Eq)
 >
 > data Expression =
@@ -61,8 +62,11 @@ Implement STACK?
 >   | Throw Expression
 >   | Try Statement Variable Statement
 >   | Return Expression
+>  -- | CallFunction Function [Assignable]
 >   deriving (Show, Eq)
 
+> data Function =
+>     Func [String] Statement
 
 ----------------------------
 
