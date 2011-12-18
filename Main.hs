@@ -38,7 +38,9 @@ evalE :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter Str
 evalE (Val (Var v)) = lookupVar v
 evalE (Val v) = do
   return v
-evalE (Dereference v) = lookupVar v
+evalE (Dereference v) = do
+  v' <- lookupVar v
+  evalE (Val v')
 evalE (Op bop e1 e2) = do
   e1' <- evalE e1 
   e2' <- evalE e2 
@@ -395,8 +397,7 @@ testfunc1 :: Statement
 testfunc1 = mksequence [
   Assign varX (Val $ IntVal 3),
   AssignFunc varY (CallFunction "foo" [(Var "X")]),
-  Print "Y = " $ varY,
-  Return varY
+  Print "Y = " $ varY
   ]
 
 
@@ -413,8 +414,14 @@ tf1 = execute ([Map.empty], funcMap) testfunc1 ~?=
 funcMap :: FuncStore  
 funcMap = Map.fromList [("foo", test_function)]
 
+test :: IO ()
+test = do
+  putStrLn $ display testref1
+  putStrLn $ display testref2
+  putStrLn $ display testref3
+  putStrLn $ display testfunc1
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1 ] --t1, t2, t3, t4, t5
+   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1 ]
    return ()
