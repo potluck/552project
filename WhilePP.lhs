@@ -18,6 +18,10 @@ Functions
 Pointers
 Lists
 
+Variables are just references. 
+Therefore, we implement higher order referencing by allowing variables to 
+refer to other variables. 
+
 > type Variable = String
 >
 > data Value =
@@ -25,13 +29,12 @@ Lists
 >   | BoolVal Bool
 >   | DoubleVal Double
 >   | CharVal Char
->   --| List [Value]
->   --| Var Variable??
+>   | List [Value]
+>   | Var Variable
 >   deriving (Show, Eq)
 >
 > data Expression =
->     Var Variable
->   | Val Value
+>     Val Value
 >   | Op  Bop Expression Expression
 >   deriving (Show, Eq)
 >
@@ -50,7 +53,7 @@ Programs in the language are simply values of the type
 NOTE: need a way to assign a statement to a function
 Functions need a RETURN statement
 Functions need a way to passing in ARGUMENTS
-Implement STACK?
+Implement STACK
 
 > data Statement =
 >     Assign Variable Expression
@@ -62,11 +65,12 @@ Implement STACK?
 >   | Throw Expression
 >   | Try Statement Variable Statement
 >   | Return Expression
->  -- | CallFunction Function [Assignable]
+>   | CallFunction Function [Value]
 >   deriving (Show, Eq)
 
 > data Function =
 >     Func [String] Statement
+>   deriving (Show, Eq)
 
 ----------------------------
 
@@ -92,8 +96,8 @@ Implement STACK?
 > 
 > 
 > instance PP Expression where
->   pp (Var x) = PP.text x
->   pp (Val x) = pp x
+>  -- pp (Var x) = PP.text x
+>  -- pp (Val x) = pp x
 >   pp e@(Op _ _ _) = ppPrec 0 e  where
 >      ppPrec n (Op bop e1 e2) =
 >         parens (level bop < n) $
