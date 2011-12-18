@@ -102,13 +102,24 @@ Implement STACK
 >   pp Le     = PP.text "<="
 > 
 > instance PP Value where
+>   pp Null = PP.text "null"
 >   pp (IntVal i)  = PP.int i 
 >   pp (BoolVal b) = if b then PP.text "true" else PP.text "false"
+>   pp (DoubleVal d) = PP.double d
+>   pp (CharVal c)  = PP.char c
+>   pp (List v) = PP.char '[' <+> pp v <+>PP.char ']'
+>   pp (Var v) = PP.text v
 > 
 > 
+> instance (PP a) => PP [a] where
+>   pp [] = PP.text ""
+>   pp (x:[]) = pp x
+>   pp (x:xs) = pp x <+> PP.text ", " <+> pp xs
+>
 > instance PP Expression where
 >  -- pp (Var x) = PP.text x
->  -- pp (Val x) = pp x
+>   pp (Val x) = pp x
+>   pp (Dereference v) = PP.text v
 >   pp e@(Op _ _ _) = ppPrec 0 e  where
 >      ppPrec n (Op bop e1 e2) =
 >         parens (level bop < n) $
@@ -124,9 +135,11 @@ Implement STACK
 > level _      = 8
 > 
 > 
-> {-
+> 
 > instance PP Statement where
->   pp (Assign x e) = PP.text x <+> PP.text ":=" <+> pp e
+>   pp (Assign e1 e2) = pp e1 <+> PP.text "=" <+> pp e2
+>   pp (AssignFunc e1 s) = pp e1 <+> PP.text "=" <+> pp s
+>   pp (AssignRef e1 e2) = pp e1 <+> PP.text ":=" <+> pp e2
 >   pp (If e s1 s2) = 
 >     PP.vcat [PP.text "if" <+> pp e <+> PP.text "then",
 >          PP.nest 2 (pp s1), 
@@ -148,11 +161,16 @@ Implement STACK
 >                                PP.text "catch" <+> PP.text v <+> PP.text "with",
 >                                PP.nest 2 (pp s2),
 >                                PP.text "endwith" ]
+>   pp (Return e) = PP.text "return" <+> pp e
+>   pp (CallFunction fname args) = 
+>      PP.text fname <+> PP.char '(' <+> 
+>      pp args <+>
+>      PP.char ')'
 
 > 
-> -}
+> 
 > display :: PP a => a -> String
-> display = undefined -- show . pp
+> display = show . pp
 > 
 
 

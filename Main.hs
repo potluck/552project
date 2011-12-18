@@ -256,21 +256,6 @@ execute store stmt = (store', result, lg) where
 
 
 {-
-evalESW :: Statement -> ESW ()
-evalESW x = evalS x
-
-instance Show a => Show (ESW a) where 
-  show m = "Log:\n"  ++ lg ++ "\n" ++ 
-           "Store: " ++ show store ++ "\n" ++
-           result
-    where ((res, lg), store) = runState (runWriterT (runErrorT m)) Map.empty
-          result = case res of 
-                       Left (IntVal s) -> "Error: " ++ show s 
-                       Left (BoolVal _) -> "Error in Error" 
-                       Right v -> "Value: " ++ show v
--}
-
-{-
 raises :: Statement -> Value -> Test
 s `raises` v = case (execute Map.empty s) of
     (_, Just v', _) -> v ~?= v'
@@ -289,12 +274,7 @@ t3 :: Test
 t3 = TestList [ Assign "X" (Op Plus (Val (IntVal 1)) (Val (BoolVal True))) `raises` IntVal 2,      
                 If (Val (IntVal 1)) Skip Skip `raises` IntVal 2,
                 While (Val (IntVal 1)) Skip `raises` IntVal 2]
--}
 
-mksequence :: [Statement] -> Statement
-mksequence = foldr Sequence Skip
-
-{-
 testprog1 :: Statement
 testprog1 = mksequence [Assign "X" $ Val $ IntVal 0,
                         Assign "Y" $ Val $ IntVal 1,
@@ -327,6 +307,11 @@ t5 = execute Map.empty testprog2 ~?=
    , "")
 -}
 
+-- Test cases
+
+mksequence :: [Statement] -> Statement
+mksequence = foldr Sequence Skip
+
 make_var :: String -> Expression
 make_var x = (Val $ Var x)
 
@@ -336,14 +321,17 @@ varX = make_var "X"
 varY :: Expression
 varY = make_var "Y"
 
+varZ :: Expression
+varZ = make_var "Z"
+
 
 
 -- X := 3
 -- Y = *X
 testref1 :: Statement
 testref1 = mksequence [ AssignRef varX (Val $ IntVal 3),
-                        Assign varY (Dereference "X")
-                        -- Print "Y = " $ varY -- no print statements yet!
+                        Assign varY (Dereference "X"),
+                        Print "Y = " $ varY
                       ]
 
 tr1 :: Test
@@ -353,14 +341,15 @@ tr1 = execute ([Map.empty], Map.empty) testref1 ~?=
           ("Y",  IntVal 3), 
           (mem_prefix++"X", IntVal 3)] ], 
      Map.empty),
-   Nothing, "")
+   Nothing, "Y = 3")
   
 
 -- X := 3
 -- Y = X
 testref2 :: Statement
 testref2 = mksequence [ AssignRef varX (Val $ IntVal 3),
-                        Assign varY varX
+                        Assign varY varX,
+                        Print "Y = " $ varY
                       ]
 
 tr2 :: Test
@@ -370,10 +359,62 @@ tr2 = execute ([Map.empty], Map.empty) testref2 ~?=
           ("Y", (Var $ mem_prefix++"X")), 
           (mem_prefix++"X", IntVal 3)] ], 
      Map.empty),
-   Nothing, "")
+   Nothing, "Y = "++mem_prefix++"X")
+
+-- X := 3
+-- Y = X
+-- *X = 5
+testref3 :: Statement
+testref3 = mksequence [ AssignRef varX (Val $ IntVal 3),
+                        Assign varY varX,
+                        Assign (Dereference "X") (Val $ IntVal 5),
+                        Print "Y = " $ (Dereference "Y")
+                      ]
+
+tr3 :: Test
+tr3 = execute ([Map.empty], Map.empty) testref3 ~?=
+  ( ([ Map.fromList [
+          ("X", (Var $ mem_prefix++"X")), 
+          ("Y", (Var $ mem_prefix++"X")), 
+          (mem_prefix++"X", IntVal 5)] ], 
+     Map.empty),
+   Nothing, "Y = 5")
+
+
+-- test_func(x):
+--   y = x
+--   return y
+test_function :: Function
+test_function = (
+  ["X"], 
+  mksequence [ Assign varY (Op Plus varX (Val $ IntVal 1)),
+               Return varY ]
+  )
+
+testfunc1 :: Statement
+testfunc1 = mksequence [
+  Assign varX (Val $ IntVal 3),
+  AssignFunc varY (CallFunction "foo" [(Var "X")]),
+  Print "Y = " $ varY,
+  Return varY
+  ]
+
+
+-- Not sure what the expected value should be. Need to review.
+tf1 :: Test
+tf1 = execute ([Map.empty], funcMap) testfunc1 ~?=
+  ( ( [Map.fromList [
+          ("X", (IntVal 3)), 
+          ("Y", (IntVal 4))
+          ] ],
+     funcMap),
+   Nothing, "Y = 4")
+  
+funcMap :: FuncStore  
+funcMap = Map.fromList [("foo", test_function)]
 
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ tr1, tr2 ] --t1, t2, t3, t4, t5
+   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1 ] --t1, t2, t3, t4, t5
    return ()
