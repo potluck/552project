@@ -119,7 +119,9 @@ evalS st'@(While e st) = do
 
 evalS Skip = return Null
 
-evalS (Sequence s1 s2) = evalS s1 >> evalS s2
+evalS (Sequence s1 s2) = do 
+  _ <- evalS s1
+  evalS s2
 
 evalS (Assign e1 e2) = 
   case e1 of 
@@ -169,6 +171,46 @@ evalS (AssignRef e1 e2) =
       put (m2:(tail $ fst s), snd s)
       return e
     _ -> throwError (IntVal 2)
+    
+    -- Case
+    -- a := 3
+    -- b := a
+    -- *b := 5  === a := 5
+    (Dereference v) -> do
+      v' <- lookupVar v
+      v'' <- getVarFromValue v' -- v'' == memA
+      s <- get
+      e <- evalE e2
+      let m = Map.insert v'' e (head $ fst s)
+      put (m:(tail $ fst s), snd s)
+      return e
+    _ -> throwError (IntVal 2)
+    
+    
+evalS (AssignFuncRef e1 stmt) =
+    case e1 of 
+    -- Case  
+    -- x := foo(3,5)  
+    (Val (Var v)) -> do 
+      s <- get
+      e <- evalS stmt
+          
+      let m = Map.insert v (Var (mem_prefix ++ v)) (head $ fst s)
+      let m2 = Map.insert (mem_prefix ++ v) e m
+          
+      put (m2:(tail $ fst s), snd s)
+      return e
+    -- Case  
+    -- *x := foo(3,5) 
+    (Dereference v) -> do
+      v' <- lookupVar v
+      v'' <- getVarFromValue v'
+      s <- get
+      e <- evalS stmt
+      let m = Map.insert v'' e (head $ fst s)
+      put (m:(tail $ fst s), snd s)
+      return e
+    _ -> throwError (IntVal 2)
 
 evalS (If e s1 s2 )    = do
   e' <- evalE e
@@ -208,6 +250,7 @@ evalS (Return e) = do
   put (tail $ fst s, snd s)
   return e'
 
+-- CallFunction String [Value]
 evalS (CallFunction fname vs) = do
   s <- get  
   let funcStore = snd s
@@ -218,13 +261,20 @@ evalS (CallFunction fname vs) = do
     if not $ length vs == length args then
        throwError (IntVal 4)
     else do
+       vs' <- sequence $ evalListE vs
        -- marshall the arguments
-       let localstore = marshallArgs args vs 
+       let localstore = marshallArgs args vs'
 
        -- push to function stack
        put (localstore:(fst s), funcStore)
        evalS stmt
-    
+
+-- evalE :: Expression -> m Value
+evalListE :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => [Value] -> [m Value] -- State Store Value
+--evalListE vs = map (evalE (Val)) vs
+evalListE [] = []
+evalListE (v:vs) = (evalE (Val v)):(evalListE vs) -- map (evalE (Val)) vs
+
 -- Store = Map Variable Value
 marshallArgs :: [String] -> [Value] -> Store
 marshallArgs [] [] = Map.empty
@@ -314,6 +364,12 @@ t5 = execute Map.empty testprog2 ~?=
 mksequence :: [Statement] -> Statement
 mksequence = foldr Sequence Skip
 
+-- Functions MUST end with a Return statement (not with Skip)
+mksequencefunc :: [Statement] -> Statement
+mksequencefunc [] = error "Invalid usage. cant be empty"
+mksequencefunc [x] = x
+mksequencefunc (x:xs) = Sequence x (mksequencefunc xs)
+
 make_var :: String -> Expression
 make_var x = (Val $ Var x)
 
@@ -384,24 +440,23 @@ tr3 = execute ([Map.empty], Map.empty) testref3 ~?=
 
 
 -- test_func(x):
---   y = x
+--   y = x + 1
 --   return y
-test_function :: Function
-test_function = (
+local_function1 :: Function
+local_function1 = (
   ["X"], 
-  mksequence [ Assign varY (Op Plus varX (Val $ IntVal 1)),
+  mksequencefunc [ Assign varY (Op Plus varX (Val $ IntVal 1)),
+               Print "Y = " $ varY,
                Return varY ]
   )
 
 testfunc1 :: Statement
-testfunc1 = mksequence [
+testfunc1 = mksequencefunc [
   Assign varX (Val $ IntVal 3),
   AssignFunc varY (CallFunction "foo" [(Var "X")]),
-  Print "Y = " $ varY
+  Print "; Y = " $ varY
   ]
 
-
--- Not sure what the expected value should be. Need to review.
 tf1 :: Test
 tf1 = execute ([Map.empty], funcMap) testfunc1 ~?=
   ( ( [Map.fromList [
@@ -409,10 +464,67 @@ tf1 = execute ([Map.empty], funcMap) testfunc1 ~?=
           ("Y", (IntVal 4))
           ] ],
      funcMap),
-   Nothing, "Y = 4")
+   Nothing, "Y = 4; Y = 4")
   
-funcMap :: FuncStore  
-funcMap = Map.fromList [("foo", test_function)]
+funcMap :: FuncStore
+funcMap = Map.fromList [("foo", local_function1)]
+
+
+-- foo(Y):
+--   X := Y
+--   *X = *X + 1
+--   return *X
+local_function2 :: Function
+local_function2 = (
+  ["Y"], 
+  mksequencefunc [ 
+    AssignRef varX varY,
+    Assign (Dereference "X") (Op Plus (Dereference "X") (Val $ IntVal 1)),
+    Print "X = " $ (Dereference "X"),
+    Return (Dereference "X") ]
+  )
+
+-- Y = 3
+-- X = foo(Y)
+testfunc2 :: Statement
+testfunc2 = mksequencefunc [
+  Assign varY (Val $ IntVal 3),
+  AssignFunc varX (CallFunction "foo" [(Var "Y")]),
+  Print "; X = " $ varX
+  ]
+
+tf2 :: Test
+tf2 = execute ([Map.empty], funcMap2) testfunc2 ~?=
+  ( ( [Map.fromList [
+          ("X", (IntVal 4)), 
+          ("Y", (IntVal 3))
+          ] ],
+     funcMap2),
+   Nothing, "X = 4; X = 4")
+  
+funcMap2 :: FuncStore
+funcMap2 = Map.fromList [("foo", local_function2)]
+
+-- Y := 3
+-- X := foo(*Y)
+testfunc2b :: Statement
+testfunc2b = mksequencefunc [
+  AssignRef varY (Val $ IntVal 3),
+  AssignFuncRef varX (CallFunction "foo" [(Dereference "Y")]),
+  Print "; X = " $ (Dereference "X")
+  ]
+
+tf2b :: Test
+tf2b = execute ([Map.empty], funcMap2) testfunc2b ~?=
+  ( ( [Map.fromList [
+          ("X", (IntVal 4)), 
+          ("Y", (IntVal 3))
+          ] ],
+     funcMap2),
+   Nothing, "X = 4; X = 4")
+
+
+
 
 test :: IO ()
 test = do
@@ -423,5 +535,5 @@ test = do
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1 ]
+   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1, tf2 ]
    return ()
