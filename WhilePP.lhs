@@ -80,6 +80,7 @@ Implement STACK
 >   | CallFunction String [Value]
 >   deriving (Show, Eq)
 
+> -- ([Arg names], function body)
 > type Function = ([String], Statement)
 > --  deriving (Show, Eq)
 

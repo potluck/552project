@@ -115,7 +115,7 @@ evalS st'@(While e st) = do
         _ -> throwError (IntVal 2)
     _  -> throwError (IntVal 2)
 
-evalS Skip             = return Null
+evalS Skip = return Null
 
 evalS (Sequence s1 s2) = evalS s1 >> evalS s2
 
