@@ -2,25 +2,25 @@
 -- Pulak Mittal (pulak@)
 -- CIS 552 hw6
 
-{-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults -fno-warn-orphans #-} 
+{-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults -fno-warn-orphans -XMultiParamTypeClasses -XFlexibleContexts -XUndecidableInstances #-} 
 {-# LANGUAGE TypeSynonymInstances, FlexibleContexts, NoMonomorphismRestriction, FlexibleInstances #-}
 
 module Main where
 
 import WhilePP
 
-import Data.Map (Map)
-import qualified Data.Map as Map
-
 import Control.Monad.State
 import Control.Monad.Error
 import Control.Monad.Writer
 
+import Data.Map (Map)
+import qualified Data.Map as Map
+
 import Test.HUnit hiding (State)
 
 type Store = Map Variable Value
-
 type FuncStore = Map String Function
+
 
 mem_prefix :: String
 mem_prefix = "mem"
@@ -42,8 +42,12 @@ evalE (Dereference v) = do
   v' <- lookupVar v
   evalE (Val v')
 evalE (Op bop e1 e2) = do
-  e1' <- evalE e1 
-  e2' <- evalE e2 
+  e1' <- case e1 of
+              Stmt s -> evalS s
+              Expr e -> evalE e 
+  e2' <- case e2 of
+              Stmt s -> evalS s
+              Expr e -> evalE e
   case (e1', e2') of
     (IntVal x, IntVal y) -> 
       case bop of
@@ -400,7 +404,7 @@ tr3 = execute ([Map.empty], Map.empty) testref3 ~?=
 local_function1 :: Function
 local_function1 = (
   ["X"], 
-  mksequencefunc [ Assign varY (Op Plus varX (Val $ IntVal 1)),
+  mksequencefunc [ Assign varY (Op Plus (Expr varX) (Expr $ Val $ IntVal 1)),
                Print "Y = " $ varY,
                Return varY ]
   )
@@ -434,7 +438,7 @@ local_function2 = (
   ["Y"], 
   mksequencefunc [ 
     AssignRef varX varY,
-    Assign (Dereference "X") (Op Plus (Dereference "X") (Val $ IntVal 1)),
+    Assign (Dereference "X") (Op Plus (Expr $ Dereference "X") (Expr $ Val $ IntVal 1)),
     Print "X = " $ (Dereference "X"),
     Return (Dereference "X") ]
   )
@@ -536,17 +540,15 @@ tf2d = execute ([Map.empty], funcMap2) testfunc2d ~?=
 
 
 -- foo3(X, Y):
---   Z = foo1(X) * foo2(Y)
---   return Z
+--   return foo1(X) * foo2(Y)
 -- both foo1 and foo2 increments by 1
-{-
 local_function3 :: Function
 local_function3 = (
   ["X", "Y"], 
   mksequencefunc [ 
-    Return (Op Product (CallFunction ) ()) ]
+    Return (Op Times (Stmt (CallFunction "foo1" [varX])) (Stmt (CallFunction "foo2" [varY]))) ]
   )
--}                
+                
                   
 
 print_functions :: IO ()
@@ -558,6 +560,9 @@ print_functions = do
   putStrLn $ display testfunc2
   putStrLn $ display testfunc2b
   putStrLn $ display testfunc2c
+--  putStrLn $ display local_function1
+--  putStrLn $ display local_function2
+--  putStrLn $ display local_function3
 
 main :: IO ()
 main = do 

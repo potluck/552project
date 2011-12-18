@@ -1,4 +1,4 @@
-> {-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults -fno-warn-orphans #-} 
+> {-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults -fno-warn-orphans -XMultiParamTypeClasses -XFlexibleContexts #-} 
 
 This file contains the definition of the abstract syntax for the 
 WhilePP programming language, as well as a pretty printer. You 
@@ -8,7 +8,6 @@ should not need to modify this file.
 
 > import Text.PrettyPrint.HughesPJ (Doc, (<+>),($$),(<>))
 > import qualified Text.PrettyPrint.HughesPJ as PP
-
 
 As before, we have variables, and expressions.
 
@@ -24,12 +23,11 @@ refer to other variables.
 
 > type Variable = String
 >
-> class Evalable a where
->   eval :: a -> Value 
->
->
->
->
+> data EvalableType =
+>     Expr Expression
+>   | Stmt Statement
+>   deriving (Show, Eq)
+> 
 > data Value =
 >     Null
 >   | IntVal Int
@@ -42,7 +40,7 @@ refer to other variables.
 >
 > data Expression =
 >     Val Value
->   | Op  Bop Expression Expression
+>   | Op  Bop EvalableType EvalableType
 >   | Dereference Variable -- Can only dereference Variables
 >   deriving (Show, Eq)
 >
@@ -125,17 +123,25 @@ Functions need a way to passing in ARGUMENTS
 >   pp (x:[]) = pp x
 >   pp (x:xs) = pp x <+> PP.text ", " <+> pp xs
 >
+> instance PP EvalableType where
+>   pp (Expr e) = pp e
+>   pp (Stmt s) = pp s
+>
+> 
 > instance PP Expression where
 >  -- pp (Var x) = PP.text x
 >   pp (Val x) = pp x
 >   pp (Dereference v) = PP.char '*' <+> PP.text v
->   pp e@(Op _ _ _) = ppPrec 0 e  where
->      ppPrec n (Op bop e1 e2) =
+>   pp e@(Op _ _ _) = ppPrec 0 (Expr e)  where
+>      ppPrec n (Expr (Op bop e1 e2)) =
 >         parens (level bop < n) $
 >            ppPrec (level bop) e1 <+> pp bop <+> ppPrec (level bop + 1) e2 
 >      ppPrec _ e' = pp e'
 >      parens b = if b then PP.parens else id
 > 
+> --instance PP Function where
+> --  pp (str, stmt) = pp str <> pp stmt 
+>
 > -- use the C++ precendence level table
 > level :: Bop -> Int
 > level Plus   = 3
@@ -176,7 +182,7 @@ Functions need a way to passing in ARGUMENTS
 >      PP.text fname <+> PP.char '(' <+> 
 >      pp args <+>
 >      PP.char ')'
-
+> 
 > 
 > 
 > display :: PP a => a -> String
