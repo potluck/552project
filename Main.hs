@@ -327,12 +327,19 @@ t5 = execute Map.empty testprog2 ~?=
    , "")
 -}
 
+make_var :: String -> Expression
+make_var x = (Val $ Var x)
+
 varX :: Expression
-varX = (Val $ Var "X")
+varX = make_var "X"
 
 varY :: Expression
-varY = (Val $ Var "Y")
+varY = make_var "Y"
 
+
+
+-- X := 3
+-- Y = *X
 testref1 :: Statement
 testref1 = mksequence [ AssignRef varX (Val $ IntVal 3),
                         Assign varY (Dereference "X")
@@ -341,11 +348,32 @@ testref1 = mksequence [ AssignRef varX (Val $ IntVal 3),
 
 tr1 :: Test
 tr1 = execute ([Map.empty], Map.empty) testref1 ~?=
-  ( ([ Map.fromList [("X", (Var $ mem_prefix++"X")), ("Y",  IntVal 3), (mem_prefix++"X", IntVal 3)] ], Map.empty),
+  ( ([ Map.fromList [
+          ("X", (Var $ mem_prefix++"X")), 
+          ("Y",  IntVal 3), 
+          (mem_prefix++"X", IntVal 3)] ], 
+     Map.empty),
+   Nothing, "")
+  
+
+-- X := 3
+-- Y = X
+testref2 :: Statement
+testref2 = mksequence [ AssignRef varX (Val $ IntVal 3),
+                        Assign varY varX
+                      ]
+
+tr2 :: Test
+tr2 = execute ([Map.empty], Map.empty) testref2 ~?=
+  ( ([ Map.fromList [
+          ("X", (Var $ mem_prefix++"X")), 
+          ("Y", (Var $ mem_prefix++"X")), 
+          (mem_prefix++"X", IntVal 3)] ], 
+     Map.empty),
    Nothing, "")
 
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ tr1 ] --t1, t2, t3, t4, t5 ]
+   _ <- runTestTT $ TestList [ tr1, tr2 ] --t1, t2, t3, t4, t5
    return ()
