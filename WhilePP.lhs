@@ -25,7 +25,8 @@ refer to other variables.
 > type Variable = String
 >
 > data Value =
->     IntVal Int
+>     Null
+>   | IntVal Int
 >   | BoolVal Bool
 >   | DoubleVal Double
 >   | CharVal Char
@@ -36,6 +37,7 @@ refer to other variables.
 > data Expression =
 >     Val Value
 >   | Op  Bop Expression Expression
+>   | Dereference Variable -- Can only dereference Variables
 >   deriving (Show, Eq)
 >
 > data Bop = 
@@ -56,7 +58,14 @@ Functions need a way to passing in ARGUMENTS
 Implement STACK
 
 > data Statement =
->     Assign Variable Expression
+>     Assign Expression Expression
+>     -- in order to be able to do *x = 5
+>     -- our interpreter should throw errors when
+>     -- the first expression is NOT Expression Val Var OR
+>     -- NOT Expression Dereference 
+>   | AssignFunc Expression Statement
+>     -- Used to assign variables to function return values
+>     -- e.g. x = foo(5,3)
 >   | If Expression Statement Statement
 >   | While Expression Statement     
 >   | Sequence Statement Statement   
@@ -65,12 +74,11 @@ Implement STACK
 >   | Throw Expression
 >   | Try Statement Variable Statement
 >   | Return Expression
->   | CallFunction Function [Value]
+>   | CallFunction String [Value]
 >   deriving (Show, Eq)
 
-> data Function =
->     Func [String] Statement
->   deriving (Show, Eq)
+> type Function = ([String], Statement)
+> --  deriving (Show, Eq)
 
 ----------------------------
 
@@ -113,6 +121,7 @@ Implement STACK
 > level _      = 8
 > 
 > 
+> {-
 > instance PP Statement where
 >   pp (Assign x e) = PP.text x <+> PP.text ":=" <+> pp e
 >   pp (If e s1 s2) = 
@@ -138,9 +147,10 @@ Implement STACK
 >                                PP.text "endwith" ]
 
 > 
-> 
+> -}
 > display :: PP a => a -> String
-> display = show . pp
+> display = undefined -- show . pp
+> 
 
 
 

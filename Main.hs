@@ -20,21 +20,26 @@ import Test.HUnit hiding (State)
 
 type Store = Map Variable Value
 
+type FuncStore = Map String Function
 
-evalE :: (MonadState [Store] m, MonadError Value m, MonadWriter String m) => Expression -> m Value -- State Store Value
-evalE (Var v) = do
+
+lookupVar :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => Variable -> m Value -- State Store Value
+lookupVar v = do
   s <- get
-  if Map.notMember v (head s) then 
+  if Map.notMember v (head $ fst s) then 
     throwError (IntVal 0)
   else
-    return $ Map.findWithDefault (IntVal 0) v (head s)
+    return $ Map.findWithDefault (IntVal 0) v (head $ fst s)  
+
+evalE :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => Expression -> m Value -- State Store Value
+
+evalE (Val (Var v)) = lookupVar v
 evalE (Val v) = do
   return v
+evalE (Dereference v) = lookupVar v
 evalE (Op bop e1 e2) = do
   e1' <- evalE e1 
   e2' <- evalE e2 
---  let e1' = evalState (evalE e1) s
---  let e2' = evalState (evalE e2) s
   case (e1', e2') of
     (IntVal x, IntVal y) -> 
       case bop of
@@ -48,47 +53,175 @@ evalE (Op bop e1 e2) = do
         Ge      -> return (BoolVal (x>=y))
         Lt      -> return (BoolVal (x<y))
         Le      -> return (BoolVal (x<=y))
+    -- TODO: Clean up this mess
+    (IntVal x', DoubleVal y) -> 
+      case bop of
+        Plus    -> return (DoubleVal (x+y))
+        Minus   -> return (DoubleVal (x-y))
+        Times   -> return (DoubleVal (x*y))
+        Divide  -> case y of 
+          0 -> throwError (DoubleVal 1)
+          _ -> return (DoubleVal (x / y))
+        Gt      -> return (BoolVal (x>y))
+        Ge      -> return (BoolVal (x>=y))
+        Lt      -> return (BoolVal (x<y))
+        Le      -> return (BoolVal (x<=y))    
+        where x = fromIntegral x'
+    (DoubleVal x, IntVal y') -> 
+      case bop of
+        Plus    -> return (DoubleVal (x+y))
+        Minus   -> return (DoubleVal (x-y))
+        Times   -> return (DoubleVal (x*y))
+        Divide  -> case y of 
+          0 -> throwError (DoubleVal 1)
+          _ -> return (DoubleVal (x / y))
+        Gt      -> return (BoolVal (x>y))
+        Ge      -> return (BoolVal (x>=y))
+        Lt      -> return (BoolVal (x<y))
+        Le      -> return (BoolVal (x<=y))    
+        where y = fromIntegral y'
+    (DoubleVal x, DoubleVal y) -> 
+      case bop of
+        Plus    -> return (DoubleVal (x+y))
+        Minus   -> return (DoubleVal (x-y))
+        Times   -> return (DoubleVal (x*y))
+        Divide  -> case y of 
+          0 -> throwError (DoubleVal 1)
+          _ -> return (DoubleVal (x / y))
+        Gt      -> return (BoolVal (x>y))
+        Ge      -> return (BoolVal (x>=y))
+        Lt      -> return (BoolVal (x<y))
+        Le      -> return (BoolVal (x<=y))    
     _ -> throwError (IntVal 2)
 
 
--- evalS :: Statement -> m Expression
-evalS :: (MonadState Store m, MonadError Value m, MonadWriter String m) => Statement -> m ()
-evalS = undefined
-{-
+getVarFromValue :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => Value -> m Variable
+getVarFromValue (Var v) = return v
+getVarFromValue _       = throwError (IntVal 3)
+
+-- evalS :: Statement -> m Value
+evalS :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => Statement -> m Value
+
 evalS st'@(While e st) = do
   e' <- evalE e -- m Value
   case e' of
-    IntVal _  -> throwError (IntVal 2)
     BoolVal b -> if b then evalS (Sequence st st') else evalS Skip
-evalS Skip             = return ()
+    Var v -> do
+      v' <- lookupVar v
+      case v' of 
+        BoolVal b -> if b then evalS (Sequence st st') else evalS Skip
+        _ -> throwError (IntVal 2)
+    _  -> throwError (IntVal 2)
+
+evalS Skip             = return Null
+
 evalS (Sequence s1 s2) = evalS s1 >> evalS s2
-evalS (Assign v e)     = do
-  s  <- get
-  e' <- evalE e
-  let m = Map.insert v e' s
-  put m
+
+evalS (Assign e1 e2) = 
+  case e1 of 
+    (Val (Var v)) -> do 
+      s <- get
+      e <- evalE e2
+      let m = Map.insert v e (head $ fst s)
+      put (m:(tail $ fst s), snd s)
+      return e
+    (Dereference v) -> do
+      v' <- lookupVar v
+      v'' <- getVarFromValue v'
+      s <- get
+      e <- evalE e2
+      let m = Map.insert v'' e (head $ fst s)
+      put (m:(tail $ fst s), snd s)
+      return e
+    _ -> throwError (IntVal 2)
+    
+evalS (AssignFunc e1 stmt) =
+    case e1 of 
+    (Val (Var v)) -> do 
+      s <- get
+      e <- evalS stmt
+      let m = Map.insert v e (head $ fst s)
+      put (m:(tail $ fst s), snd s)
+      return e
+    (Dereference v) -> do
+      v' <- lookupVar v
+      v'' <- getVarFromValue v'
+      s <- get
+      e <- evalS stmt
+      let m = Map.insert v'' e (head $ fst s)
+      put (m:(tail $ fst s), snd s)
+      return e
+    _ -> throwError (IntVal 2)
+  
 evalS (If e s1 s2 )    = do
   e' <- evalE e
   case e' of
-    IntVal _  -> throwError (IntVal 2)
     BoolVal b -> if b then evalS s1 else evalS s2
+    Var v -> do
+      v' <- lookupVar v
+      case v' of 
+        BoolVal b -> if b then evalS s1 else evalS s2
+        _ -> throwError (IntVal 2)
+    _  -> throwError (IntVal 2)
+
 evalS (Print s e) = do
   e' <- evalE e
   tell (s ++ display e')
+  return Null
+
 evalS (Throw e) = do 
   e' <- evalE e
-  throwError e'
+  _  <- throwError e'
+  return Null
+
 evalS (Try s1 v s2) = 
   catchError (evalS s1)
              (\err -> 
                do m <- get
-                  let m' = Map.insert v err m
-                  put m'
+                  let m' = Map.insert v err (head $ fst m)
+                  put (m':(tail $ fst m), snd m)
                   evalS s2
-             ) 
--}
+             )
 
--- MonadState, MonadWriter, MonadError
+-- Note: ALL functions should terminate with a return statement
+-- Because this is where we pop the function stack
+evalS (Return e) = do
+  e' <- evalE e
+  s <- get
+  put (tail $ fst s, snd s)
+  return e'
+
+evalS (CallFunction fname vs) = do
+  s <- get  
+  let funcStore = snd s
+  if Map.notMember fname funcStore then
+    throwError (IntVal 3)
+  else do
+    let (args, stmt) = Map.findWithDefault dummyFunction fname funcStore
+    if not $ length vs == length args then
+       throwError (IntVal 4)
+    else do
+       -- marshall the arguments
+       let localstore = marshallArgs args vs 
+
+       -- push to function stack
+       put (localstore:(fst s), funcStore)
+       evalS stmt
+    
+-- Store = Map Variable Value
+marshallArgs :: [String] -> [Value] -> Store
+marshallArgs [] [] = Map.empty
+marshallArgs (a:as) (s:ss) = Map.insert a s (marshallArgs as ss)
+marshallArgs _ _ = error "Invalid Args"
+
+
+dummyFunction :: Function
+dummyFunction = ([], Skip)
+
+
+
+
+
 instance Error Value   
 type ESW a = ErrorT Value (WriterT String (State Store)) a
 
@@ -97,12 +230,13 @@ type ESW a = ErrorT Value (WriterT String (State Store)) a
 -- 1: Division by zero
 -- 2: Runtime error (Add int to bool, comparison of non-ints)
 
-execute :: Store -> Statement -> (Store, Maybe Value, String)
+execute :: ([Store],FuncStore) -> Statement -> (([Store], FuncStore), Maybe Value, String)
 execute store stmt = (store', result, lg) where
   ((res, lg), store') = runState (runWriterT (runErrorT (evalS stmt))) store
   result = case res of 
     Left s -> Just s
     Right _ -> Nothing
+
 
 {-
 evalESW :: Statement -> ESW ()
@@ -119,11 +253,15 @@ instance Show a => Show (ESW a) where
                        Right v -> "Value: " ++ show v
 -}
 
+{-
 raises :: Statement -> Value -> Test
 s `raises` v = case (execute Map.empty s) of
     (_, Just v', _) -> v ~?= v'
     _  -> 1 ~?= 2
+-}
 
+
+{-
 t1 :: Test
 t1 = (Assign "X"  (Var "Y")) `raises` IntVal 0
 
@@ -134,10 +272,12 @@ t3 :: Test
 t3 = TestList [ Assign "X" (Op Plus (Val (IntVal 1)) (Val (BoolVal True))) `raises` IntVal 2,      
                 If (Val (IntVal 1)) Skip Skip `raises` IntVal 2,
                 While (Val (IntVal 1)) Skip `raises` IntVal 2]
+-}
 
 mksequence :: [Statement] -> Statement
 mksequence = foldr Sequence Skip
 
+{-
 testprog1 :: Statement
 testprog1 = mksequence [Assign "X" $ Val $ IntVal 0,
                         Assign "Y" $ Val $ IntVal 1,
@@ -168,8 +308,10 @@ t5 = execute Map.empty testprog2 ~?=
           ,("Z", IntVal 101)]
           , Nothing 
    , "")
+-}
+
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ t1, t2, t3, t4, t5 ]
+   _ <- runTestTT $ TestList [ ] --t1, t2, t3, t4, t5 ]
    return ()
