@@ -80,7 +80,7 @@ Implement STACK
 >   | Throw Expression
 >   | Try Statement Variable Statement
 >   | Return Expression
->   | CallFunction String [Value]
+>   | CallFunction String [Expression]
 >   deriving (Show, Eq)
 
 > -- ([Arg names], function body)
@@ -123,7 +123,7 @@ Implement STACK
 > instance PP Expression where
 >  -- pp (Var x) = PP.text x
 >   pp (Val x) = pp x
->   pp (Dereference v) = PP.text v
+>   pp (Dereference v) = PP.char '*' <+> PP.text v
 >   pp e@(Op _ _ _) = ppPrec 0 e  where
 >      ppPrec n (Op bop e1 e2) =
 >         parens (level bop < n) $
@@ -144,6 +144,7 @@ Implement STACK
 >   pp (Assign e1 e2) = pp e1 <+> PP.text "=" <+> pp e2
 >   pp (AssignFunc e1 s) = pp e1 <+> PP.text "=" <+> pp s
 >   pp (AssignRef e1 e2) = pp e1 <+> PP.text ":=" <+> pp e2
+>   pp (AssignFuncRef e s) = pp e <+> PP.text ":=" <+> pp s
 >   pp (If e s1 s2) = 
 >     PP.vcat [PP.text "if" <+> pp e <+> PP.text "then",
 >          PP.nest 2 (pp s1), 
