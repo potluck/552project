@@ -24,6 +24,12 @@ refer to other variables.
 
 > type Variable = String
 >
+> class Evalable a where
+>   eval :: a -> Value 
+>
+>
+>
+>
 > data Value =
 >     Null
 >   | IntVal Int
@@ -52,10 +58,9 @@ refer to other variables.
 >   deriving (Show, Eq)
 
 Programs in the language are simply values of the type
-NOTE: need a way to assign a statement to a function
 Functions need a RETURN statement
 Functions need a way to passing in ARGUMENTS
-Implement STACK
+--> Implement STACK
 
 > data Statement =
 >     Assign Expression Expression

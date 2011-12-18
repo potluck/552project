@@ -173,14 +173,17 @@ evalS (AssignRef e1 e2) =
     -- Case
     -- a := 3
     -- b := a
-    -- *b := 5  === a := 5
+    -- *b := 5  ===  memB := 5
     (Dereference v) -> do
       v' <- lookupVar v
-      v'' <- getVarFromValue v' -- v'' == memA
+      v'' <- getVarFromValue v' -- v'' == memB
       s <- get
       e <- evalE e2
-      let m = Map.insert v'' e (head $ fst s)
-      put (m:(tail $ fst s), snd s)
+          
+      let m = Map.insert v'' (Var (mem_prefix ++ v'')) (head $ fst s)
+      let m2 = Map.insert (mem_prefix ++ v'') e m    
+          
+      put (m2:(tail $ fst s), snd s)
       return e
     _ -> throwError (IntVal 2)
     
@@ -199,14 +202,17 @@ evalS (AssignFuncRef e1 stmt) =
       put (m2:(tail $ fst s), snd s)
       return e
     -- Case  
-    -- *x := foo(3,5) 
+    -- *x := foo(3,5)  ===  memX := foo(3,5)
     (Dereference v) -> do
       v' <- lookupVar v
       v'' <- getVarFromValue v'
       s <- get
       e <- evalS stmt
-      let m = Map.insert v'' e (head $ fst s)
-      put (m:(tail $ fst s), snd s)
+          
+      let m = Map.insert v'' (Var (mem_prefix ++ v'')) (head $ fst s)
+      let m2 = Map.insert (mem_prefix ++ v'') e m        
+          
+      put (m2:(tail $ fst s), snd s)
       return e
     _ -> throwError (IntVal 2)
 
@@ -419,7 +425,7 @@ funcMap :: FuncStore
 funcMap = Map.fromList [("foo", local_function1)]
 
 
--- foo(Y):
+-- foo2(Y):
 --   X := Y
 --   *X = *X + 1
 --   return *X
@@ -434,7 +440,7 @@ local_function2 = (
   )
 
 -- Y = 3
--- X = foo(Y)
+-- X = foo2(Y)
 testfunc2 :: Statement
 testfunc2 = mksequencefunc [
   Assign varY (Val $ IntVal 3),
@@ -455,7 +461,7 @@ funcMap2 :: FuncStore
 funcMap2 = Map.fromList [("foo", local_function2)]
 
 -- Y := 3
--- X := foo(*Y)
+-- X := foo2(*Y)
 testfunc2b :: Statement
 testfunc2b = mksequencefunc [
   AssignRef varY (Val $ IntVal 3),
@@ -474,8 +480,74 @@ tf2b = execute ([Map.empty], funcMap2) testfunc2b ~?=
      funcMap2),
    Nothing, "X = 4; X = 4")
 
+-- Y := 3
+-- X := Null
+-- Z := X
+-- print *Z
+testfunc2c :: Statement
+testfunc2c = mksequencefunc [
+  AssignRef varY (Val $ IntVal 3),
+  AssignRef varX (Val Null),
+  AssignRef varZ varX,
+  Print "Z = " $ (Dereference "Z") -- give us memX
+  ]
+
+tf2c :: Test
+tf2c = execute ([Map.empty], funcMap2) testfunc2c ~?=
+  ( ( [Map.fromList [
+          ("X", (Var $ mem_prefix++"X")), 
+          ("Y", (Var $ mem_prefix++"Y")),
+          ("Z", (Var $ mem_prefix++"Z")),
+          ((mem_prefix++"Y"), IntVal 3),
+          ((mem_prefix++"X"), Null),
+          ((mem_prefix++"Z"), (Var $ mem_prefix++"X"))
+          ] ],
+     funcMap2),
+   Nothing, "Z = memX")
 
 
+-- Y := 3
+-- X := Null
+-- Z := X
+-- *Z := foo2(*Y)
+-- print **Z
+testfunc2d :: Statement
+testfunc2d = mksequencefunc [
+  AssignRef varY (Val $ IntVal 3),
+  AssignRef varX (Val Null),
+  AssignRef varZ varX,
+  AssignFuncRef (Dereference "Z") (CallFunction "foo" [(Dereference "Y")]),
+  Print "; Z = " $ (Dereference $ mem_prefix++"Z") -- give us **Z
+  ]
+
+tf2d :: Test
+tf2d = execute ([Map.empty], funcMap2) testfunc2d ~?=
+  ( ( [Map.fromList [
+          ("X", (Var $ mem_prefix++"X")), 
+          ("Y", (Var $ mem_prefix++"Y")),
+          ("Z", (Var $ mem_prefix++"Z")),
+          ((mem_prefix++"Y"), IntVal 3),
+          ((mem_prefix++"X"), Null),
+          ((mem_prefix++"Z"), (Var $ mem_prefix++mem_prefix++"Z")),
+          ((mem_prefix++mem_prefix++"Z"), IntVal 4)
+          ] ],
+     funcMap2),
+   Nothing, "X = 4; Z = 4")
+
+
+-- foo3(X, Y):
+--   Z = foo1(X) * foo2(Y)
+--   return Z
+-- both foo1 and foo2 increments by 1
+{-
+local_function3 :: Function
+local_function3 = (
+  ["X", "Y"], 
+  mksequencefunc [ 
+    Return (Op Product (CallFunction ) ()) ]
+  )
+-}                
+                  
 
 print_functions :: IO ()
 print_functions = do
@@ -485,8 +557,9 @@ print_functions = do
   putStrLn $ display testfunc1
   putStrLn $ display testfunc2
   putStrLn $ display testfunc2b
+  putStrLn $ display testfunc2c
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1, tf2, tf2b ]
+   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1, tf2, tf2b, tf2c, tf2d ]
    return ()
