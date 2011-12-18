@@ -22,6 +22,8 @@ type Store = Map Variable Value
 
 type FuncStore = Map String Function
 
+mem_prefix :: String
+mem_prefix = "mem"
 
 lookupVar :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => Variable -> m Value -- State Store Value
 lookupVar v = do
@@ -153,6 +155,19 @@ evalS (AssignFunc e1 stmt) =
       return e
     _ -> throwError (IntVal 2)
   
+evalS (AssignRef e1 e2) = 
+  case e1 of 
+    (Val (Var v)) -> do 
+      s <- get
+      e <- evalE e2
+      
+      let m = Map.insert v (Var (mem_prefix ++ v)) (head $ fst s)
+      let m2 = Map.insert (mem_prefix ++ v) e m
+          
+      put (m2:(tail $ fst s), snd s)
+      return e
+    _ -> throwError (IntVal 2)
+
 evalS (If e s1 s2 )    = do
   e' <- evalE e
   case e' of
@@ -229,6 +244,8 @@ type ESW a = ErrorT Value (WriterT String (State Store)) a
 -- 0: Reading undefined value
 -- 1: Division by zero
 -- 2: Runtime error (Add int to bool, comparison of non-ints)
+-- 3: Function does not exist
+-- 4: Invalid number of arguments passed to function
 
 execute :: ([Store],FuncStore) -> Statement -> (([Store], FuncStore), Maybe Value, String)
 execute store stmt = (store', result, lg) where
@@ -309,6 +326,16 @@ t5 = execute Map.empty testprog2 ~?=
           , Nothing 
    , "")
 -}
+
+testref1 :: Statement
+testref1 = mksequence [AssignRef (Val $ Var "X") (Val $ IntVal 3),
+                        Assign "Y" (Dereference "X"),
+                        Print "Y = " $ Var "Y"
+                       ]
+
+t4 :: Test
+t4 = execute ([Map.empty], Map.empty) testref1 ~?=
+  (Map.fromList [("X", (Var $ mem_prefix++"X")), ("Y",  IntVal 3), (mem_prefix++"X", IntVal 3)], Nothing, "Y = 3")
 
 
 main :: IO ()
