@@ -327,18 +327,25 @@ t5 = execute Map.empty testprog2 ~?=
    , "")
 -}
 
-testref1 :: Statement
-testref1 = mksequence [AssignRef (Val $ Var "X") (Val $ IntVal 3),
-                        Assign "Y" (Dereference "X"),
-                        Print "Y = " $ Var "Y"
-                       ]
+varX :: Expression
+varX = (Val $ Var "X")
 
-t4 :: Test
-t4 = execute ([Map.empty], Map.empty) testref1 ~?=
-  (Map.fromList [("X", (Var $ mem_prefix++"X")), ("Y",  IntVal 3), (mem_prefix++"X", IntVal 3)], Nothing, "Y = 3")
+varY :: Expression
+varY = (Val $ Var "Y")
+
+testref1 :: Statement
+testref1 = mksequence [ AssignRef varX (Val $ IntVal 3),
+                        Assign varY (Dereference "X")
+                        -- Print "Y = " $ varY -- no print statements yet!
+                      ]
+
+tr1 :: Test
+tr1 = execute ([Map.empty], Map.empty) testref1 ~?=
+  ( ([ Map.fromList [("X", (Var $ mem_prefix++"X")), ("Y",  IntVal 3), (mem_prefix++"X", IntVal 3)] ], Map.empty),
+   Nothing, "")
 
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ ] --t1, t2, t3, t4, t5 ]
+   _ <- runTestTT $ TestList [ tr1 ] --t1, t2, t3, t4, t5 ]
    return ()
