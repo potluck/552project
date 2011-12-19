@@ -1,0 +1,12 @@
+main(){
+  X = 5;
+  Y = 3;
+  Z = 0;
+  try
+    throw(X+10);
+  catch E with
+    Z = E + Y;
+  endwith;
+  @print "Z=" Z;
+  return Z;
+}

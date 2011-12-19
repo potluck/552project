@@ -1,7 +1,7 @@
 main(){
   X = 1;
-  Y = 5;  
-  X = @inc(Y);
+  Y := 5;  
+  X = @inc(#Y);
   Z := X;
   @print "Z=" #Z;
   return Z;
