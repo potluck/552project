@@ -3,7 +3,7 @@ module WParser (
   parse,
   exprP,
   statementP,
-  funcmapP,
+  parsefile,
   Store,
   FuncStore
   ) where
@@ -56,7 +56,7 @@ charP = do
     
                
 parenP :: Char -> Parser Char a -> Char -> Parser Char a
-parenP l p r = do wsP (char l)
+vparenP l p r = do wsP (char l)
                   x <- wsP p
                   wsP (char r)
                   return x
@@ -385,13 +385,32 @@ callP = do
 
 
 -- Parse all the function declarations and return a FuncStore
-funcmapP :: Parser Char FuncStore
-funcmapP = do
+onefuncmapP :: FuncStore -> Parser Char FuncStore
+onefuncmapP store = do
   fname <- wsP $ many alpha
   fargs <- wsP $ between (wsP (string "(")) (wsP $ ilistP (exprP)) (wsP (string ")"))
   func <- wsP $ between (wsP (string "{")) (wsP statementP) (wsP (string "}"))
-  return $ Map.insert fname (convert fargs, func) Map.empty 
+  return $ Map.insert fname (convert fargs, func) store 
     where
       convert [] = []
       convert ((Val (Var v)):es) = v:(convert es)
       convert _  = []
+
+manyfuncmapP :: FuncStore -> Parser Char FuncStore
+manyfuncmapP st = many1 onefuncmapP st <|> many0  
+  where many0 = return st
+        many1 p m = do 
+          m' <- p m
+          m'' <- wsP (manyfuncmapP m')
+          return m''
+          
+funcmapP :: Parser Char FuncStore
+funcmapP = manyfuncmapP Map.empty
+
+
+parsefile :: String -> IO (FuncStore)
+parsefile f = do 
+  y <- parseFromFile funcmapP f
+  case y of 
+    (Left _)  -> error "Invalid File or Parse Error"
+    (Right x) -> return x

@@ -1,6 +1,5 @@
 -- Thanat Owlarn (towlarn@)
 -- Pulak Mittal (pulak@)
--- CIS 552 hw6
 
 {-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults -fno-warn-orphans -XMultiParamTypeClasses -XFlexibleContexts -XUndecidableInstances #-} 
 {-# LANGUAGE TypeSynonymInstances, FlexibleContexts, NoMonomorphismRestriction, FlexibleInstances #-}
