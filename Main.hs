@@ -177,7 +177,7 @@ evalS (AssignRef e1 e2) =
     -- Case
     -- a := 3
     -- b := a
-    -- *b := 5  ===  memB := 5
+    -- #b := 5  ===  memB := 5
     (Dereference v) -> do
       v' <- lookupVar v
       v'' <- getVarFromValue v' -- v'' == memB
@@ -206,7 +206,7 @@ evalS (AssignFuncRef e1 stmt) =
       put (m2:(tail $ fst s), snd s)
       return e
     -- Case  
-    -- *x := foo(3,5)  ===  memX := foo(3,5)
+    -- #x := foo(3,5)  ===  memX := foo(3,5)
     (Dereference v) -> do
       v' <- lookupVar v
       v'' <- getVarFromValue v'
@@ -346,7 +346,7 @@ varZ = make_var "Z"
 
 
 -- X := 3
--- Y = *X
+-- Y = #X
 testref1 :: Statement
 testref1 = mksequence [ AssignRef varX (Val $ IntVal 3),
                         Assign varY (Dereference "X"),
@@ -382,7 +382,7 @@ tr2 = execute ([Map.empty], Map.empty) testref2 ~?=
 
 -- X := 3
 -- Y = X
--- *X = 5
+-- #X = 5
 testref3 :: Statement
 testref3 = mksequence [ AssignRef varX (Val $ IntVal 3),
                         Assign varY varX,
@@ -433,8 +433,8 @@ funcMap = Map.fromList [("foo", local_function1)]
 
 -- foo2(Y):
 --   X := Y
---   *X = *X + 1
---   return *X
+--   #X = #X + 1
+--   return #X
 local_function2 :: Function
 local_function2 = (
   ["Y"], 
@@ -467,7 +467,7 @@ funcMap2 :: FuncStore
 funcMap2 = Map.fromList [("foo", local_function2)]
 
 -- Y := 3
--- X := foo2(*Y)
+-- X := foo2(#Y)
 testfunc2b :: Statement
 testfunc2b = mksequencefunc [
   AssignRef varY (Val $ IntVal 3),
@@ -489,7 +489,7 @@ tf2b = execute ([Map.empty], funcMap2) testfunc2b ~?=
 -- Y := 3
 -- X := Null
 -- Z := X
--- print *Z
+-- print #Z
 testfunc2c :: Statement
 testfunc2c = mksequencefunc [
   AssignRef varY (Val $ IntVal 3),
@@ -515,15 +515,15 @@ tf2c = execute ([Map.empty], funcMap2) testfunc2c ~?=
 -- Y := 3
 -- X := Null
 -- Z := X
--- *Z := foo2(*Y)
--- print **Z
+-- #Z := foo2(#Y)
+-- print ##Z
 testfunc2d :: Statement
 testfunc2d = mksequencefunc [
   AssignRef varY (Val $ IntVal 3),
   AssignRef varX (Val Null),
   AssignRef varZ varX,
   AssignFuncRef (Dereference "Z") (CallFunction "foo" [(Dereference "Y")]),
-  Print "; Z = " $ Expr (Dereference $ mem_prefix++"Z") -- give us **Z
+  Print "; Z = " $ Expr (Dereference $ mem_prefix++"Z") -- give us ##Z
   ]
 
 tf2d :: Test

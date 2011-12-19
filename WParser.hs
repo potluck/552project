@@ -137,9 +137,10 @@ p `echainl1` pop = p >>= rest
                       y <- p
                       rest $ (Expr x) `o` (Expr y)
 
+-- NOTE: Dereferencing uses the # sign
 derefP :: Parser Char Expression
 derefP = do 
-  _ <- wsP $ string "*"
+  _ <- wsP $ string "#"
   x <- wsP variableP
   return (Dereference x)
   
