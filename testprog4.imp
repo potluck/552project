@@ -1,0 +1,32 @@
+mod(X, Y){
+  Z = X / Y;
+  A = X - (Z * Y);
+  return A;
+}
+
+sum(){
+  COUNTER = 2;
+  TOTAL = 0;
+  while COUNTER < 1000 do
+    C = @mod(COUNTER, 3);
+    D = @mod(COUNTER, 5);
+    if C <= 0 then
+      TOTAL = TOTAL + COUNTER;
+    else
+      if D <= 0 then
+        TOTAL = TOTAL + COUNTER;
+      else
+        skip;
+      endif;
+    endif;
+    COUNTER = COUNTER + 1;
+  endwhile;
+  return TOTAL;
+}
+
+
+main(){
+  X = @sum();
+  @print "The answer to Project Euler problem 1 is " X;
+  return 0;
+}

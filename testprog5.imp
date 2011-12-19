@@ -1,0 +1,31 @@
+mod(X, Y){
+  Z = X / Y;
+  A = X - (Z * Y);
+  return A;
+}
+
+sum(){
+  NUMA = 1;
+  NUMB = 2;
+
+  TOTAL = 0;
+  while NUMB < 4000000 do
+    PARITY = @mod(NUMB, 2);
+    if PARITY <= 0 then
+      TOTAL = TOTAL + NUMB;
+    else
+      skip;
+    endif;
+    TEMP = NUMB;
+    NUMB = NUMB + NUMA;
+    NUMA = TEMP;
+  endwhile;
+  return TOTAL;
+}
+
+
+main(){
+  X = @sum();
+  @print "The answer to Project Euler problem 2 is " X;
+  return 0;
+}

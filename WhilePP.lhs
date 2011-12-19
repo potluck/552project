@@ -109,7 +109,7 @@ Functions need a way to passing in ARGUMENTS
 >   pp Le     = PP.text "<="
 > 
 > instance PP Value where
->   pp Null = PP.text "null"
+>   pp Null = PP.text ""
 >   pp (IntVal i)  = PP.int i 
 >   pp (BoolVal b) = if b then PP.text "true" else PP.text "false"
 >   pp (DoubleVal d) = PP.double d
