@@ -1,11 +1,5 @@
-
--- Advanced Programming, HW 4
--- by Pulak Mittal <pulak@>, Thanat Owlarn <towlarn@>
-
 {-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults  #-}
 
--- CIS 552, University of Pennsylvania
--- based on Parsec and ReadP parsing libraries
 module ParserCombinators where
 
 import Parser
@@ -56,6 +50,15 @@ int :: Parser Char Int
 int = do n <- string "-" <|> return []
          s <- many1 digit  
          return $ (read (n ++ s) :: Int)
+
+-- | succeed only if the input is a (positive or negative) number
+double :: Parser Char Double
+double = do n <- string "-" <|> return []
+            s1 <- many1 digit  
+            d  <- string "."    
+            s2 <- many1 digit     
+            return $ (read (n ++ s1 ++ d ++ s2) :: Double)
+
 
 -- | given a parser, apply it as many times as possible                         
 -- and return the answer in a list

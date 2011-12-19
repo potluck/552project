@@ -1,7 +1,3 @@
-
--- Advanced Programming, HW 4
--- by Pulak Mittal <pulak@>, Thanat Owlarn <towlarn@>
-
 {-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults  #-}
 
 module Parser (Parser,                  
@@ -56,3 +52,6 @@ p1 `choose` p2 = P (\cs -> doParse p1 cs ++ doParse p2 cs)
 p1 <|> p2 = P $ \cs -> case doParse (p1 `choose` p2) cs of
                           []   -> []
                           x:_ -> [x]
+
+
+
