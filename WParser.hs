@@ -91,14 +91,32 @@ wsP p = do
   
   
 listP :: Parser Char Value  
-listP = undefined
+listP = do
+  l <- wsP $ between (wsP (string "[")) (wsP ilistP) (wsP (string "]"))
+  return $ List l
+  
+ilistP :: Parser Char [Value]
+ilistP = do
+  x <- upto1 valueP
+  case x of
+    [] -> return []
+    (y:_) -> do
+      xs <- many $ commaP $ wsP valueP
+      return (y:xs)
+  
+upto1 :: Parser Char Value -> Parser Char [Value]  
+upto1 p = get1 p <|> get0 
+  where get0 = return []
+        get1 p = do
+          x <- wsP p
+          return [x]
 
-{-
-commaP :: Parser Char Value
-commaP = do
-  x <- many $ string ","
-  return ","
--}
+
+commaP :: Parser Char Value -> Parser Char Value
+commaP p = do
+  wsP $ many $ string ","
+  x <- p
+  return x
 
 
 
@@ -347,8 +365,10 @@ returnP = do
 
 -- @fname (x,y,z)
 callP :: Parser Char Statement
-callP = do
+callP = undefined {- do
   wsP (string "@")
   fname <- many alpha
   fargs <- wsP $ between (wsP (string "(")) (wsP statementP) (wsP (string ")"))
   return $ CallFunction fname fargs
+
+-}
