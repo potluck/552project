@@ -56,7 +56,7 @@ charP = do
     
                
 parenP :: Char -> Parser Char a -> Char -> Parser Char a
-vparenP l p r = do wsP (char l)
+parenP l p r = do wsP (char l)
                   x <- wsP p
                   wsP (char r)
                   return x
@@ -372,7 +372,7 @@ tryP = do
 returnP :: Parser Char Statement
 returnP = do
   wsP (string "return")
-  e <- wsP exprP 
+  e <- wsP statementP 
   return (Return e)
 
 -- @fname (x,y,z)
@@ -396,17 +396,27 @@ onefuncmapP store = do
       convert ((Val (Var v)):es) = v:(convert es)
       convert _  = []
 
+
+
 manyfuncmapP :: FuncStore -> Parser Char FuncStore
 manyfuncmapP st = many1 onefuncmapP st <|> many0  
   where many0 = return st
         many1 p m = do 
-          m' <- p m
-          m'' <- wsP (manyfuncmapP m')
+          m' <- wsnlP (p m)
+          m'' <- wsnlP (manyfuncmapP m')
           return m''
           
 funcmapP :: Parser Char FuncStore
-funcmapP = manyfuncmapP Map.empty
+funcmapP = wsnlP $ manyfuncmapP Map.empty
 
+-- white space and new lines
+wsnlP :: Parser Char a -> Parser Char a
+wsnlP p = do
+  many space
+  x <- p
+  return x
+  
+  
 
 parsefile :: String -> IO (FuncStore)
 parsefile f = do 
@@ -414,3 +424,17 @@ parsefile f = do
   case y of 
     (Left _)  -> error "Invalid File or Parse Error"
     (Right x) -> return x
+    
+testparsefile :: String -> IO ()
+testparsefile f = do
+  s <- parsefile f
+  if Map.notMember "main" s then do
+    putStrLn "Invalid program -- no main method defined"
+    return ()
+  else  
+    putStrLn $ show s
+
+testparsefile2 :: String -> IO ()
+testparsefile2 f = do
+  s <- parsefile f
+  putStrLn $ show s
