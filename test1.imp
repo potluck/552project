@@ -1,0 +1,11 @@
+
+
+main(){
+  x = 3;
+  return foo(x, 4);
+}
+
+foo(HELLO, WORLD){
+  @print "HELLO WORLD" HELLO;
+  return 3;
+}
