@@ -176,6 +176,16 @@ oneV   = Expr $ Val (IntVal 1)
 twoV   = Expr $ Val (IntVal 2)
 threeV = Expr $ Val (IntVal 3)
 
+oneDV, twoDV, threeDV :: Evalable
+oneDV   = Expr $ Val (IntVal 1.0)
+twoDV   = Expr $ Val (IntVal 2.0)
+threeDV = Expr $ Val (IntVal 3.0)
+
+varX, varY, varZ :: Expression
+varX = Val $ Var "X"
+varY = Val $ Var "Y"
+varZ = Val $ Var "Z"
+
 t11 :: Test
 t11 = TestList [
   "s1" ~: succeed (parse exprP "1 "),
@@ -211,4 +221,42 @@ t11 = TestList [
     e5 = (Op Lt oneV (Expr $ Op Plus twoV threeV))
     e6 = (Op Lt (Expr $ Op Plus threeV twoV) oneV)
     e7 = (Op Lt (Expr $ Op Lt oneV twoV) threeV)
+    
+    
+t13 :: Test
+t13 = TestList [
+  "s1" ~: succeed (parse exprP "1 "),
+  "s2" ~: succeed (parse exprP "1  + 2"), 
+  "s3" ~: notsucceed (parse exprP "+2"), 
+  "s4" ~: notsucceed (parse exprP ""),
+  Right e1 ~=? parse exprP "1 + 2 + 3",
+  Right e2 ~=? parse exprP "1 - 2 + 3",
+  Right e1 ~=? parse exprP "(1+   2) + (3)",
+  Right e1 ~=? parse exprP "((1+(2)) +(3)) ",
+  Right e3 ~=? parse exprP "3 <= (3 * (2 - 1))",
+  Right e3 ~=? parse exprP "3 <= (3 * (2 - 1))",
+  Right e4 ~=? parse exprP "((1 + 2) * 3) < (3 * (2 - 1))",
+  Right e5 ~=? parse exprP "1 < 2 + 3",
+  Right e6 ~=? parse exprP "3 + 2 < 1",
+  Right (Op Ge (Expr e3) (Expr e4)) ~=? parse exprP "(3 <=3*(2-1)) >= ((1+2)*3 < 3*(2-1))",
+  Right e7 ~=? parse exprP "1<2<3",
+  -- The parens are invalid and so parsing stops after the 1+2
+  Right (Op Plus oneV twoV) ~=? parse exprP "1+2(+3)",
+  "s5" ~: notsucceed (parse exprP "(1+)2+3")
+  ]
+  where
+    succeed (Left _)     = assert False
+    succeed (Right _)    = assert True
+    notsucceed (Left _)  = assert True
+    notsucceed (Right _) = assert False
+    e1 = (Op Plus (Expr $ Op Plus oneV twoV) threeV)
+    e2 = (Op Plus (Expr $ Op Minus oneV twoV) threeV)
+    e3 = (Op Le threeV (Expr $ Op Times threeV (Expr $ Op Minus twoV oneV)))
+    e4 = (Op Lt 
+           (Expr $ Op Times (Expr $ Op Plus oneV twoV) threeV) 
+           (Expr $ Op Times threeV (Expr $ Op Minus twoV oneV)))
+    e5 = (Op Lt oneV (Expr $ Op Plus twoV threeV))
+    e6 = (Op Lt (Expr $ Op Plus threeV twoV) oneV)
+    e7 = (Op Lt (Expr $ Op Lt oneV twoV) threeV)
+    
     
