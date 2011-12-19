@@ -1,2 +1,52 @@
-so was pulak!
-thanat was here
+Pulak Mittal, @pulak
+Thanat Owlarn, @towlarn
+
+Briefly describe each of the main components and the order that they should be read. Also list any additional libraries that your project depends on.
+
+Main Components:
+Main.hs
+WhilePP.lhs
+WParser.hs
+
+WhilePP:
+This file contains the definition of our language, C--
+Also contains pretty print definitions for C--
+
+WParser.hs:
+This file contains the parser for our language, C--
+The main function is "parsefile", which reads a file and parses it to create a Map from:   function_name -> function_declarations
+
+Main.hs:
+This file contains the interpreter. 
+It also contains an "executeFromFile" function that executes a C-- program by reading a file.
+
+
+The C-- Language:
+Similar to the WHILE language in class, with extra features
+ - referencing/dereferencing
+   - references are assigned via ":="
+   - e.g. X := 5 
+   - dereferencing is done via "#"
+   - e.g. #X = 2
+ - data types: Double, Char, Lists
+ - functions
+   - functions are called via "@"
+   - e.g. #X = @foo(2,3)
+   - functions are contained in braces, {}
+
+
+
+Implementation Details
+
+*Function Stack
+
+type Store = Map Variable Value
+type FuncStore = Map String Function
+
+Our state consists of ([Store], FuncStore)
+
+FuncStore is the mapping of function names to function declarations, and hence is global (visible in all scopes)
+[Store] represents our function call stack. Each element in the call stack has its own local state, and hence a local store. For example, if X is declared in the "main" function, the "foo" function will not know of X's existence. 
+
+*Referencing
+References are implemented by simulating "memory". 
