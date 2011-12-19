@@ -62,19 +62,19 @@ Functions need a way to passing in ARGUMENTS
 
 > data Statement =
 >     Assign Expression Expression
->     -- in order to be able to do *x = 5
+>     -- in order to be able to do #x = 5
 >     -- our interpreter should throw errors when
 >     -- the first expression is NOT Expression Val Var OR
 >     -- NOT Expression Dereference 
 >   | AssignFunc Expression Statement
 >     -- Used to assign variables to function return values
->     -- e.g. x = foo(5,3)
+>     -- e.g. x = @foo(5,3)
 >   | AssignRef Expression Expression
 >     -- Used to assign references to an expression
 >     -- e.g. x := 5
 >   | AssignFuncRef Expression Statement
 >     -- Used to assign references to function return values
->     -- e.g. x := foo(5,3)
+>     -- e.g. x := @foo(5,3)
 >   | If Expression Statement Statement
 >   | While Expression Statement     
 >   | Sequence Statement Statement   

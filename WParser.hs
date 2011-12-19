@@ -11,7 +11,7 @@ import Test.HUnit
 
 valueP :: Parser Char Value
 -- parse double BEFORE int!
-valueP = doubleP <|> intP <|> boolP <|> nullP <|> charP <|> varP --listP
+valueP = doubleP <|> intP <|> boolP <|> nullP <|> charP <|> varP <|> listP
 
 intP :: Parser Char Value
 intP = do
@@ -84,10 +84,15 @@ varP = do
 
 wsP :: Parser Char a -> Parser Char a
 wsP p = do
-  x <- p
   many space
+  x <- p
+--  many space
   return x
   
+  
+listP :: Parser Char Value  
+listP = undefined
+
 {-
 commaP :: Parser Char Value
 commaP = do
@@ -167,6 +172,9 @@ varX = Expr $ Val $ Var "X"
 varY = Expr $ Val $ Var "Y"
 varZ = Expr $ Val $ Var "Z"
 
+derefX :: Evalable
+derefX = Expr $ Dereference "X"
+
 charA :: Evalable
 charA = Expr $ Val $ CharVal 'a'
 
@@ -209,32 +217,138 @@ t11 = TestList [
     
 t12 :: Test
 t12 = TestList [
-  Right (Val $ DoubleVal 2.5) ~=? parse exprP "2.5",
-  Right e1 ~=? parse exprP "X + 2.5 + 'a'",
-  Right e2 ~=? parse exprP "X - 2.5 + 'a'",
-  Right e1 ~=? parse exprP "(X+   2.5) + ('a')",
-  Right e1 ~=? parse exprP "((X+(2.5)) +('a')) ",
-  Right e3 ~=? parse exprP "'a' <= ('a' * (2.5 - X))",
-  Right e3 ~=? parse exprP "'a' <= ('a' * (2.5 - X))",
-  Right e4 ~=? parse exprP "((X + 2.5) * 'a') < ('a' * (2.5 - X))",
-  Right e5 ~=? parse exprP "X < 2.5 + 'a'",
-  Right e6 ~=? parse exprP "'a' + 2.5 < X",
-  Right (Op Ge (Expr e3) (Expr e4)) ~=? parse exprP "('a' <='a'*(2.5-X)) >= ((X+2.5)*'a' < 'a'*(2.5-X))",
-  Right e7 ~=? parse exprP "X<2.5<'a'"
+  Right (Val $ DoubleVal 2.5) ~=? parse exprP "2.5  ",
+  "f" ~: notsucceed (parse exprP "  ' b'"),
+  "f" ~: notsucceed (parse exprP "'ab'"),
+  Right e1 ~=? parse exprP "#X + 2.5 + 'a'",
+  Right e2 ~=? parse exprP "  #X - 2.5 + 'a'",
+  Right e1 ~=? parse exprP "(# X+   2.5) + ('a')",
+  Right e1 ~=? parse exprP "((#  X +(  2.5)) +('a')) ",
+  Right e3 ~=? parse exprP "'a' <= ('a' * (2.5 - #X))",
+  Right e3 ~=? parse exprP "'a' <= ('a' * (2.5 - #X))",
+  Right e4 ~=? parse exprP "((# X + 2.5) * 'a') < ('a' * (2.5 - #X))",
+  Right e5 ~=? parse exprP "# X < 2.5 + 'a'",
+  Right e6 ~=? parse exprP "'a' + 2.5 < # X",
+  Right (Op Ge (Expr e3) (Expr e4)) ~=? parse exprP "('a' <='a'*(2.5-#X)) >= ((#X+2.5)*'a' < 'a'*(2.5-#X))",
+  Right e7 ~=? parse exprP "#X<2.5<'a'"
   ]
   where
     succeed (Left _)     = assert False
     succeed (Right _)    = assert True
     notsucceed (Left _)  = assert True
     notsucceed (Right _) = assert False
-    e1 = (Op Plus (Expr $ Op Plus varX twoDV) charA)
-    e2 = (Op Plus (Expr $ Op Minus varX twoDV) charA)
-    e3 = (Op Le charA (Expr $ Op Times charA (Expr $ Op Minus twoDV varX)))
+    e1 = (Op Plus (Expr $ Op Plus derefX twoDV) charA)
+    e2 = (Op Plus (Expr $ Op Minus derefX twoDV) charA)
+    e3 = (Op Le charA (Expr $ Op Times charA (Expr $ Op Minus twoDV derefX)))
     e4 = (Op Lt 
-           (Expr $ Op Times (Expr $ Op Plus varX twoDV) charA) 
-           (Expr $ Op Times charA (Expr $ Op Minus twoDV varX)))
-    e5 = (Op Lt varX (Expr $ Op Plus twoDV charA))
-    e6 = (Op Lt (Expr $ Op Plus charA twoDV) varX)
-    e7 = (Op Lt (Expr $ Op Lt varX twoDV) charA)
+           (Expr $ Op Times (Expr $ Op Plus derefX twoDV) charA) 
+           (Expr $ Op Times charA (Expr $ Op Minus twoDV derefX)))
+    e5 = (Op Lt derefX (Expr $ Op Plus twoDV charA))
+    e6 = (Op Lt (Expr $ Op Plus charA twoDV) derefX)
+    e7 = (Op Lt (Expr $ Op Lt derefX twoDV) charA)
     
     
+
+
+statementP :: Parser Char Statement
+statementP = choice [ sequenceP, ifP, whileP, skipP, assignP, assignFP, assignRP, assignFRP, printP, throwP, tryP, returnP, callP]
+
+leftSequenceP :: Parser Char Statement  
+leftSequenceP = choice [ ifP, whileP, skipP, assignP, assignFP, assignRP, assignFRP, printP, throwP, tryP, returnP, callP ]
+
+-- helper parsers
+assignP :: Parser Char Statement
+assignP = do 
+  x <- wsP varP
+  wsP (string "=")
+  z <- wsP exprP
+  return (Assign (Val x) z)
+  
+assignFP :: Parser Char Statement
+assignFP = do 
+  x <- wsP varP
+  wsP (string "=")
+  z <- wsP callP
+  return (AssignFunc (Val x) z)
+  
+assignRP :: Parser Char Statement
+assignRP = do 
+  x <- wsP varP
+  wsP (string ":=")
+  z <- wsP exprP
+  return (AssignRef (Val x) z)
+
+assignFRP :: Parser Char Statement
+assignFRP = do 
+  x <- wsP varP
+  wsP (string ":=")
+  z <- wsP callP
+  return (AssignFuncRef (Val x) z)
+
+skipP :: Parser Char Statement
+skipP = do
+  wsP (constP "skip" Skip)
+  return Skip
+
+whileP :: Parser Char Statement
+whileP = do
+  e <- wsP $ between (wsP (string "while")) (wsP exprP) (wsP (string "do"))
+  s <- wsP statementP
+  wsP (string "endwhile")
+  return (While e s)
+  
+ifP :: Parser Char Statement
+ifP = do
+  e <- wsP $ between (wsP (string "if")) (wsP exprP) (wsP (string "then"))
+  x <- wsP statementP
+  y <- wsP $ between (wsP (string "else")) (wsP statementP) (wsP (string "endif"))
+  return (If e x y)
+
+sequenceP :: Parser Char Statement
+sequenceP = do 
+  s1 <- wsP leftSequenceP 
+  wsP (char ';')
+  s2 <- wsP statementP
+  return (Sequence s1 s2)
+  
+-- @print "" X
+-- @print "hello world"
+-- @print "hello" X  
+printP :: Parser Char Statement
+printP = do
+  wsP (string "@print")
+  wsP (string "\"")
+  str <- many (satisfy ('"' /=))
+  wsP (string "\"")
+  e <- wsP $ many exprP
+  return $ Print str (aux e)
+  where
+    aux [] = Expr $ Val Null
+    aux (x:_) = Expr x
+
+throwP :: Parser Char Statement
+throwP = do
+  wsP (string "throw")
+  e <- wsP exprP 
+  return (Throw e)
+
+tryP :: Parser Char Statement
+tryP = do
+  st1 <- wsP $ between (wsP (string "try")) (wsP statementP) (wsP (string "catch"))
+  var <- wsP variableP
+  st2 <- wsP $ between (wsP (string "with")) (wsP statementP) (wsP (string "endwith"))
+  return (Try st1 var st2)
+
+returnP :: Parser Char Statement
+returnP = do
+  wsP (string "return")
+  e <- wsP exprP 
+  return (Return e)
+
+-- @fname (x,y,z)
+callP :: Parser Char Statement
+callP = do
+  wsP (string "@")
+  fname <- many alpha
+  fargs <- wsP $ between (wsP (string "(")) (wsP statementP) (wsP (string ")"))
+  return $ CallFunction fname fargs
