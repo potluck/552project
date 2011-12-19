@@ -1,0 +1,27 @@
+mod(X, Y){
+  Z = X / Y;
+  A = X - (Z * Y);
+  return A;
+}
+
+isPrime(X){
+  COUNTER = 2;
+  RETVAL = true;
+  while COUNTER < X do
+    C = @mod(X, COUNTER);
+    if C <= 0 then
+      RETVAL = false;
+    else
+      skip;
+    endif;
+    COUNTER = COUNTER + 1;
+  endwhile;
+  return RETVAL;
+}
+
+
+main(){
+  X = @isPrime(21);
+  @print "is 21 prime? " X;
+  return 0;
+}
