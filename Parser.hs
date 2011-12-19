@@ -1,14 +1,17 @@
 {-# OPTIONS -Wall -fwarn-tabs -fno-warn-type-defaults  #-}
 
-module Parser (Parser,                  
+module Parser (Parser,                
                    get,
                    choose,
                    (<|>),
                    satisfy,
-                   doParse,  
+                   doParse
+                  -- parallelP,
+                  -- echooseP
                    ) where
 
 import Control.Monad
+--import WhilePP
 
 newtype Parser b a  = P ([b] -> [(a, [b])])
 
@@ -53,5 +56,23 @@ p1 <|> p2 = P $ \cs -> case doParse (p1 `choose` p2) cs of
                           []   -> []
                           x:_ -> [x]
 
+--doParse :: Parser b a -> [b] -> [(a, [b])] 
+--doParse (P p) s = p s
+-- P ([b] -> [(a, [b])])
+{-                          
+echoose :: Parser Char Statement -> Parser Char Expression -> Parser Char Evalable
+ps `echoose` pe = P (\cs -> 
+                      (Stmt $ doParse ps cs) ++ (Expr $ doParse pe cs))
 
+edoParse :: Parser Char Expression -> [Char] -> [(Evalable, [Char])] 
+edoParse (P p) s = p s
 
+-- | Combine two parsers together in parallel, but only use the 
+-- first result. This means that the second parser is used only 
+-- if the first parser completely fails. 
+parallelP :: Parser Char Statement -> Parser Char Expression -> Parser Char Evalable
+ps `parallelP` pe = P $ \cs -> case doParse (ps `choose` pe) cs of
+                          []   -> []
+                          x:_ -> [x]
+
+-}

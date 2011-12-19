@@ -3,10 +3,10 @@
 main(){
   X = 3;
   Y = @foo(3,X);
-  return Y
+  return Y;
 }
 
 foo(HELLO, WORLD){
   @print "HELLO WORLD" HELLO;
-  return 3
+  return 3;
 }

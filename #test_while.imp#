@@ -1,0 +1,15 @@
+
+
+
+main(){
+  while X > 0 do
+    Z = 3 + 4
+  endwhile;
+  return 0;
+} 
+
+foo(HELLO, WORLD){
+  @print "HELLO WORLD" HELLO;
+  return 3;
+}
+

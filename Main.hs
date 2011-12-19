@@ -553,7 +553,7 @@ local_function3 :: Function
 local_function3 = (
   ["X", "Y"], 
   mksequencefunc [ 
-    Return (Op Times (Stmt (CallFunction "foo1" [varX])) (Stmt (CallFunction "foo2" [varY]))) ]
+    Return (Op Times (Stmt (CallFunction "foo1" [varX])) (Stmt (CallFunction "foo2" [varY])))]
   )
                   
 --                   
@@ -584,12 +584,19 @@ print_functions = do
   putStrLn $ display testfunc2
   putStrLn $ display testfunc2b
   putStrLn $ display testfunc2c
---  putStrLn $ display local_function1
---  putStrLn $ display local_function2
---  putStrLn $ display local_function3
 
 main :: IO ()
 main = do 
    _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1, tf2, tf2b, tf2c, tf2d, 
                                tf3 ]
    return ()
+   
+executeFromFile :: String -> IO (([Store], FuncStore), Maybe Value, String)
+executeFromFile f = do
+  s <- parsefile f
+  if Map.notMember "main" s then do
+    putStrLn "Invalid program -- no main method defined"
+    return (([Map.empty],s), Just (IntVal 2), "")
+  else do
+    return $ execute ([Map.empty],s) (snd (Map.findWithDefault dummyFunction "main" s))
+    

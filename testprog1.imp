@@ -1,0 +1,17 @@
+main(){
+  X = 1;
+  Y = 5;  
+  X = @inc(Y);
+  Z := X;
+  @print "Z=" #Z;
+  return Z;
+}
+
+inc(X){
+  Y = @square(X+1);
+  return Y;
+}
+
+square(X){
+  return X * X;
+}

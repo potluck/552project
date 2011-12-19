@@ -4,6 +4,8 @@ module WParser (
   exprP,
   statementP,
   parsefile,
+  testparsefile,
+  testparsefile2,
   Store,
   FuncStore
   ) where
@@ -338,8 +340,10 @@ sequenceP :: Parser Char Statement
 sequenceP = do 
   s1 <- wsP leftSequenceP 
   wsP (char ';')
-  s2 <- wsP statementP
-  return (Sequence s1 s2)
+  s2 <- wsP $ upto1 statementP
+  case s2 of
+    [] -> return s1
+    (x:_)  -> return (Sequence s1 x)
   
 -- @print "" X
 -- @print "hello world"
@@ -372,8 +376,17 @@ tryP = do
 returnP :: Parser Char Statement
 returnP = do
   wsP (string "return")
-  e <- wsP statementP 
+  e <- wsP $ exprP
   return (Return e)
+  
+evalableP :: Parser Char Evalable
+evalableP = undefined
+
+  
+
+                          
+                          
+                          
 
 -- @fname (x,y,z)
 callP :: Parser Char Statement
