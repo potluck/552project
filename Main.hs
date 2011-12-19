@@ -231,10 +231,12 @@ evalS (If e s1 s2 )    = do
         _ -> throwError (IntVal 2)
     _  -> throwError (IntVal 2)
 
-evalS (Print s e) = do
-  e' <- evalE e
-  tell (s ++ display e')
-  return Null
+evalS (Print str eval) = do
+  e' <- case eval of
+    Stmt s -> evalS s
+    Expr e -> evalE e 
+  tell (str ++ display e')
+  return e'
 
 evalS (Throw e) = do 
   e' <- evalE e
@@ -348,7 +350,7 @@ varZ = make_var "Z"
 testref1 :: Statement
 testref1 = mksequence [ AssignRef varX (Val $ IntVal 3),
                         Assign varY (Dereference "X"),
-                        Print "Y = " $ varY
+                        Print "Y = " $ Expr varY
                       ]
 
 tr1 :: Test
@@ -366,7 +368,7 @@ tr1 = execute ([Map.empty], Map.empty) testref1 ~?=
 testref2 :: Statement
 testref2 = mksequence [ AssignRef varX (Val $ IntVal 3),
                         Assign varY varX,
-                        Print "Y = " $ varY
+                        Print "Y = " $ Expr varY
                       ]
 
 tr2 :: Test
@@ -385,7 +387,7 @@ testref3 :: Statement
 testref3 = mksequence [ AssignRef varX (Val $ IntVal 3),
                         Assign varY varX,
                         Assign (Dereference "X") (Val $ IntVal 5),
-                        Print "Y = " $ (Dereference "Y")
+                        Print "Y = " $ Expr (Dereference "Y")
                       ]
 
 tr3 :: Test
@@ -405,7 +407,7 @@ local_function1 :: Function
 local_function1 = (
   ["X"], 
   mksequencefunc [ Assign varY (Op Plus (Expr varX) (Expr $ Val $ IntVal 1)),
-               Print "Y = " $ varY,
+               Print "Y = " $ Expr varY,
                Return varY ]
   )
 
@@ -413,7 +415,7 @@ testfunc1 :: Statement
 testfunc1 = mksequencefunc [
   Assign varX (Val $ IntVal 3),
   AssignFunc varY (CallFunction "foo" [varX]),
-  Print "; Y = " $ varY
+  Print "; Y = " $ Expr varY
   ]
 
 tf1 :: Test
@@ -439,7 +441,7 @@ local_function2 = (
   mksequencefunc [ 
     AssignRef varX varY,
     Assign (Dereference "X") (Op Plus (Expr $ Dereference "X") (Expr $ Val $ IntVal 1)),
-    Print "X = " $ (Dereference "X"),
+    Print "X = " $ Expr (Dereference "X"),
     Return (Dereference "X") ]
   )
 
@@ -449,7 +451,7 @@ testfunc2 :: Statement
 testfunc2 = mksequencefunc [
   Assign varY (Val $ IntVal 3),
   AssignFunc varX (CallFunction "foo" [varY]),
-  Print "; X = " $ varX
+  Print "; X = " $ Expr varX
   ]
 
 tf2 :: Test
@@ -470,7 +472,7 @@ testfunc2b :: Statement
 testfunc2b = mksequencefunc [
   AssignRef varY (Val $ IntVal 3),
   AssignFuncRef varX (CallFunction "foo" [(Dereference "Y")]),
-  Print "; X = " $ (Dereference "X")
+  Print "; X = " $ Expr (Dereference "X")
   ]
 
 tf2b :: Test
@@ -493,7 +495,7 @@ testfunc2c = mksequencefunc [
   AssignRef varY (Val $ IntVal 3),
   AssignRef varX (Val Null),
   AssignRef varZ varX,
-  Print "Z = " $ (Dereference "Z") -- give us memX
+  Print "Z = " $ Expr (Dereference "Z") -- give us memX
   ]
 
 tf2c :: Test
@@ -521,7 +523,7 @@ testfunc2d = mksequencefunc [
   AssignRef varX (Val Null),
   AssignRef varZ varX,
   AssignFuncRef (Dereference "Z") (CallFunction "foo" [(Dereference "Y")]),
-  Print "; Z = " $ (Dereference $ mem_prefix++"Z") -- give us **Z
+  Print "; Z = " $ Expr (Dereference $ mem_prefix++"Z") -- give us **Z
   ]
 
 tf2d :: Test
@@ -548,7 +550,24 @@ local_function3 = (
   mksequencefunc [ 
     Return (Op Times (Stmt (CallFunction "foo1" [varX])) (Stmt (CallFunction "foo2" [varY]))) ]
   )
-                
+                  
+--                   
+-- print foo3(3.5,5)
+testfunc3 :: Statement
+testfunc3 = mksequencefunc [
+  Print "" $ Stmt (CallFunction "foo3" [(Val $ DoubleVal 3.5), (Val $ IntVal 5)])
+  ]
+            
+            
+tf3 :: Test
+tf3 = execute ([Map.empty], funcMap3) testfunc3 ~?=
+  ( ( [Map.fromList [
+          ] ],
+     funcMap3),
+   Nothing, "Y = 4.5X = 627.0")
+                  
+funcMap3 :: FuncStore
+funcMap3 = Map.fromList [("foo1", local_function1),("foo2", local_function2),("foo3", local_function3)] 
                   
 
 print_functions :: IO ()
@@ -566,5 +585,6 @@ print_functions = do
 
 main :: IO ()
 main = do 
-   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1, tf2, tf2b, tf2c, tf2d ]
+   _ <- runTestTT $ TestList [ tr1, tr2, tr3, tf1, tf2, tf2b, tf2c, tf2d, 
+                               tf3 ]
    return ()

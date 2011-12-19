@@ -23,7 +23,7 @@ refer to other variables.
 
 > type Variable = String
 >
-> data EvalableType =
+> data Evalable =
 >     Expr Expression
 >   | Stmt Statement
 >   deriving (Show, Eq)
@@ -40,7 +40,7 @@ refer to other variables.
 >
 > data Expression =
 >     Val Value
->   | Op  Bop EvalableType EvalableType
+>   | Op  Bop Evalable Evalable
 >   | Dereference Variable -- Can only dereference Variables
 >   deriving (Show, Eq)
 >
@@ -79,7 +79,7 @@ Functions need a way to passing in ARGUMENTS
 >   | While Expression Statement     
 >   | Sequence Statement Statement   
 >   | Skip
->   | Print String Expression
+>   | Print String Evalable
 >   | Throw Expression
 >   | Try Statement Variable Statement
 >   | Return Expression
@@ -123,7 +123,7 @@ Functions need a way to passing in ARGUMENTS
 >   pp (x:[]) = pp x
 >   pp (x:xs) = pp x <+> PP.text ", " <+> pp xs
 >
-> instance PP EvalableType where
+> instance PP Evalable where
 >   pp (Expr e) = pp e
 >   pp (Stmt s) = pp s
 >
