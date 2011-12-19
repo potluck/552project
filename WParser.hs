@@ -10,7 +10,8 @@ import Test.HUnit
 
 
 valueP :: Parser Char Value
-valueP = intP <|> boolP <|> nullP <|> doubleP <|> charP <|> varP --listP
+-- parse double BEFORE int!
+valueP = doubleP <|> intP <|> boolP <|> nullP <|> charP <|> varP --listP
 
 intP :: Parser Char Value
 intP = do
@@ -40,25 +41,6 @@ charP = do
   s2 <- string "'"
   return (CharVal c)
     
-{-
-listP :: Parser Char Value    
-listP = (parenP '[' listP ']')
-
-ilistP :: Parser Char Value
-ilistP = chainl' (wsP valueP <|> ilistP) (wsP $ commaP) (List [])
-
-chainl' :: Parser a b -> Parser a b -> b -> Parser a b
-chainl' p op x = chainl1' p op <|> return x
-
--- | Like 'chainl', but parses one or more occurrences of @p@.
-chainl1' :: Parser b a -> Parser b a -> Parser b a
-p `chainl1'` pop = p >>= rest
-    where rest x = next x <|> return x 
-          next x = do o <- pop
-                      y <- p
-                      rest $ x `o` y 
--}         
-                      
                
 parenP :: Char -> Parser Char a -> Char -> Parser Char a
 parenP l p r = do wsP (char l)
@@ -144,12 +126,10 @@ exprP = (wsP boolP) `echainl1` (wsP eboolopP) where
   mulP = (wsP leftExprP)
   
   
--- a = char; b = expression; c = evalable
+
 echainl :: Parser Char Expression -> Parser Char (Evalable -> Evalable -> Expression) -> Expression -> Parser Char Expression
 echainl p op x = echainl1 p op <|> return x
 
--- b = char; c = evalable; a = expression
--- | Like 'chainl', but parses one or more occurrences of @p@.
 echainl1 :: Parser Char Expression -> Parser Char (Evalable -> Evalable -> Expression) -> Parser Char Expression
 p `echainl1` pop = p >>= rest
     where rest x = next x <|> return x 
@@ -177,14 +157,17 @@ twoV   = Expr $ Val (IntVal 2)
 threeV = Expr $ Val (IntVal 3)
 
 oneDV, twoDV, threeDV :: Evalable
-oneDV   = Expr $ Val (IntVal 1.0)
-twoDV   = Expr $ Val (IntVal 2.0)
-threeDV = Expr $ Val (IntVal 3.0)
+oneDV   = Expr $ Val (DoubleVal 1.0)
+twoDV   = Expr $ Val (DoubleVal 2.5)
+threeDV = Expr $ Val (DoubleVal 3.0)
 
-varX, varY, varZ :: Expression
-varX = Val $ Var "X"
-varY = Val $ Var "Y"
-varZ = Val $ Var "Z"
+varX, varY, varZ :: Evalable
+varX = Expr $ Val $ Var "X"
+varY = Expr $ Val $ Var "Y"
+varZ = Expr $ Val $ Var "Z"
+
+charA :: Evalable
+charA = Expr $ Val $ CharVal 'a'
 
 t11 :: Test
 t11 = TestList [
@@ -223,40 +206,34 @@ t11 = TestList [
     e7 = (Op Lt (Expr $ Op Lt oneV twoV) threeV)
     
     
-t13 :: Test
-t13 = TestList [
-  "s1" ~: succeed (parse exprP "1 "),
-  "s2" ~: succeed (parse exprP "1  + 2"), 
-  "s3" ~: notsucceed (parse exprP "+2"), 
-  "s4" ~: notsucceed (parse exprP ""),
-  Right e1 ~=? parse exprP "1 + 2 + 3",
-  Right e2 ~=? parse exprP "1 - 2 + 3",
-  Right e1 ~=? parse exprP "(1+   2) + (3)",
-  Right e1 ~=? parse exprP "((1+(2)) +(3)) ",
-  Right e3 ~=? parse exprP "3 <= (3 * (2 - 1))",
-  Right e3 ~=? parse exprP "3 <= (3 * (2 - 1))",
-  Right e4 ~=? parse exprP "((1 + 2) * 3) < (3 * (2 - 1))",
-  Right e5 ~=? parse exprP "1 < 2 + 3",
-  Right e6 ~=? parse exprP "3 + 2 < 1",
-  Right (Op Ge (Expr e3) (Expr e4)) ~=? parse exprP "(3 <=3*(2-1)) >= ((1+2)*3 < 3*(2-1))",
-  Right e7 ~=? parse exprP "1<2<3",
-  -- The parens are invalid and so parsing stops after the 1+2
-  Right (Op Plus oneV twoV) ~=? parse exprP "1+2(+3)",
-  "s5" ~: notsucceed (parse exprP "(1+)2+3")
+t12 :: Test
+t12 = TestList [
+  Right (Val $ DoubleVal 2.5) ~=? parse exprP "2.5",
+  Right e1 ~=? parse exprP "X + 2.5 + 'a'",
+  Right e2 ~=? parse exprP "X - 2.5 + 'a'",
+  Right e1 ~=? parse exprP "(X+   2.5) + ('a')",
+  Right e1 ~=? parse exprP "((X+(2.5)) +('a')) ",
+  Right e3 ~=? parse exprP "'a' <= ('a' * (2.5 - X))",
+  Right e3 ~=? parse exprP "'a' <= ('a' * (2.5 - X))",
+  Right e4 ~=? parse exprP "((X + 2.5) * 'a') < ('a' * (2.5 - X))",
+  Right e5 ~=? parse exprP "X < 2.5 + 'a'",
+  Right e6 ~=? parse exprP "'a' + 2.5 < X",
+  Right (Op Ge (Expr e3) (Expr e4)) ~=? parse exprP "('a' <='a'*(2.5-X)) >= ((X+2.5)*'a' < 'a'*(2.5-X))",
+  Right e7 ~=? parse exprP "X<2.5<'a'"
   ]
   where
     succeed (Left _)     = assert False
     succeed (Right _)    = assert True
     notsucceed (Left _)  = assert True
     notsucceed (Right _) = assert False
-    e1 = (Op Plus (Expr $ Op Plus oneV twoV) threeV)
-    e2 = (Op Plus (Expr $ Op Minus oneV twoV) threeV)
-    e3 = (Op Le threeV (Expr $ Op Times threeV (Expr $ Op Minus twoV oneV)))
+    e1 = (Op Plus (Expr $ Op Plus varX twoDV) charA)
+    e2 = (Op Plus (Expr $ Op Minus varX twoDV) charA)
+    e3 = (Op Le charA (Expr $ Op Times charA (Expr $ Op Minus twoDV varX)))
     e4 = (Op Lt 
-           (Expr $ Op Times (Expr $ Op Plus oneV twoV) threeV) 
-           (Expr $ Op Times threeV (Expr $ Op Minus twoV oneV)))
-    e5 = (Op Lt oneV (Expr $ Op Plus twoV threeV))
-    e6 = (Op Lt (Expr $ Op Plus threeV twoV) oneV)
-    e7 = (Op Lt (Expr $ Op Lt oneV twoV) threeV)
+           (Expr $ Op Times (Expr $ Op Plus varX twoDV) charA) 
+           (Expr $ Op Times charA (Expr $ Op Minus twoDV varX)))
+    e5 = (Op Lt varX (Expr $ Op Plus twoDV charA))
+    e6 = (Op Lt (Expr $ Op Plus charA twoDV) varX)
+    e7 = (Op Lt (Expr $ Op Lt varX twoDV) charA)
     
     
