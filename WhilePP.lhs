@@ -34,7 +34,7 @@ refer to other variables.
 >   | BoolVal Bool
 >   | DoubleVal Double
 >   | CharVal Char
->   | List [Value]
+>   | List [Expression]
 >   | Var Variable
 >   deriving (Show, Eq)
 >

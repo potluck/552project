@@ -8,18 +8,18 @@
 module Main where
 
 import WhilePP
+import WParser
 
 import Control.Monad.State
 import Control.Monad.Error
 import Control.Monad.Writer
 
-import Data.Map (Map)
+--import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Test.HUnit hiding (State)
 
-type Store = Map Variable Value
-type FuncStore = Map String Function
+
 
 
 mem_prefix :: String
@@ -36,6 +36,12 @@ lookupVar v = do
 evalE :: (MonadState ([Store], FuncStore) m, MonadError Value m, MonadWriter String m) => Expression -> m Value -- State Store Value
 
 evalE (Val (Var v)) = lookupVar v
+evalE (Val (List l)) = case l of
+  [] -> return $ List l
+  xs -> do
+    xs' <- sequence $ evalListE xs -- xs' == [Value] 
+    return $ List $ map Val xs'
+
 evalE (Val v) = do
   return v
 evalE (Dereference v) = do

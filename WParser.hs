@@ -1,4 +1,13 @@
 
+module WParser ( 
+  parse,
+  exprP,
+  statementP,
+  funcmapP,
+  Store,
+  FuncStore
+  ) where
+
 import Control.Monad
 
 import Parser
@@ -7,7 +16,11 @@ import WhilePP
 
 import Test.HUnit
 
+import Data.Map (Map)
+import qualified Data.Map as Map
 
+type Store = Map Variable Value
+type FuncStore = Map String Function
 
 valueP :: Parser Char Value
 -- parse double BEFORE int!
@@ -90,29 +103,28 @@ wsP p = do
   return x
   
   
-listP :: Parser Char Value  
+listP :: Parser Char Value
 listP = do
-  l <- wsP $ between (wsP (string "[")) (wsP ilistP) (wsP (string "]"))
+  l <- wsP $ between (wsP (string "[")) (wsP $ ilistP exprP) (wsP (string "]"))
   return $ List l
   
-ilistP :: Parser Char [Value]
-ilistP = do
-  x <- upto1 valueP
+ilistP :: Parser Char a -> Parser Char [a]
+ilistP p = do
+  x <- upto1 p
   case x of
     [] -> return []
     (y:_) -> do
-      xs <- many $ commaP $ wsP valueP
+      xs <- many $ commaP $ wsP p
       return (y:xs)
   
-upto1 :: Parser Char Value -> Parser Char [Value]  
+upto1 :: Parser Char a -> Parser Char [a]  
 upto1 p = get1 p <|> get0 
   where get0 = return []
         get1 p = do
           x <- wsP p
           return [x]
 
-
-commaP :: Parser Char Value -> Parser Char Value
+commaP :: Parser Char a -> Parser Char a
 commaP p = do
   wsP $ many $ string ","
   x <- p
@@ -365,10 +377,21 @@ returnP = do
 
 -- @fname (x,y,z)
 callP :: Parser Char Statement
-callP = undefined {- do
+callP = do
   wsP (string "@")
   fname <- many alpha
-  fargs <- wsP $ between (wsP (string "(")) (wsP statementP) (wsP (string ")"))
+  fargs <- wsP $ between (wsP (string "(")) (wsP $ ilistP exprP) (wsP (string ")"))
   return $ CallFunction fname fargs
 
--}
+
+-- Parse all the function declarations and return a FuncStore
+funcmapP :: Parser Char FuncStore
+funcmapP = do
+  fname <- wsP $ many alpha
+  fargs <- wsP $ between (wsP (string "(")) (wsP $ ilistP (exprP)) (wsP (string ")"))
+  func <- wsP $ between (wsP (string "{")) (wsP statementP) (wsP (string "}"))
+  return $ Map.insert fname (convert fargs, func) Map.empty 
+    where
+      convert [] = []
+      convert ((Val (Var v)):es) = v:(convert es)
+      convert _  = []
